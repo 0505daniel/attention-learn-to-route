@@ -15,16 +15,24 @@ from reinforce_baselines import NoBaseline, ExponentialBaseline, CriticBaseline,
 from nets.attention_model import AttentionModel
 from nets.pointer_network import PointerNetwork, CriticNetworkLSTM
 from utils import torch_load_cpu, load_problem
+import wandb
 
 
 def run(opts):
-
+    #init wandb
+    if opts.wandb:
+        wandb.init(
+            project="TSPD_tour",
+            config=vars(opts),
+            name=opts.run_name
+        )
     # Pretty print the run args
     pp.pprint(vars(opts))
 
     # Set the random seed
     torch.manual_seed(opts.seed)
 
+    #NOTE Using Wandb for logging
     # Optionally configure tensorboard
     tb_logger = None
     if not opts.no_tensorboard:
@@ -152,7 +160,7 @@ def run(opts):
         opts.epoch_start = epoch_resume + 1
 
     if opts.eval_only:
-        validate(model, val_dataset, opts)
+        validate(model, val_dataset, opts) #TODO Need to look this part after Training
     else:
         for epoch in range(opts.epoch_start, opts.epoch_start + opts.n_epochs):
             train_epoch(
@@ -165,7 +173,7 @@ def run(opts):
                 problem,
                 tb_logger,
                 opts
-            )
+            ) #TODO Need to look this part 2
 
 
 if __name__ == "__main__":
