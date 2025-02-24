@@ -32,7 +32,7 @@ def rollout(model, dataset, opts):
     # Put in greedy evaluation mode!
     set_decode_type(model, "greedy")
     model.eval()
-
+    
     def eval_model_bat(bat):
         with torch.no_grad():
             cost, _ = model(move_to(bat, opts.device))
