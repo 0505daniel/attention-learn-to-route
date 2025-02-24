@@ -1,30 +1,31 @@
 > Note: I am currently not able to actively maintain this repository. Please also checkout more recent implementations, e.g. https://github.com/ai4co/rl4co and https://github.com/cpwan/RLOR.
 
 ```python
-def run_tsp_ep(x, y, alpha):
+def run_tsp_ep(tour, x, y, alpha):
     """
     Python interface for the TSP-ep algorithm.
-    """
-    return TSPDrone.solve_tspd(x, y, 1.0, 1.0 / alpha, n_groups=1, method="TSP-ep")
+    """    
+    # Generate cost matrix with dummy
+    Ct, Cd = TSPDrone.cost_matrices_with_dummy(x, y, 1.0, alpha)
+
+    return TSPDrone.exact_partitioning(tour, Ct, Cd)
 ```
 You can use this function to run the TSP-ep algorithm in python. The result will be :
 ```bash
-    print(result.total_cost)
-    print(result.truck_route)
-    print(result.drone_route)
+    print(final_time)
+    print(truck_route)
+    print(drone_route)
 
-    5.5977549101124895
-[  1  72  43   3  58  12  79  95  94  69  93  90  57  75  32  36  11  51
-  78  31  64   2  40  91  62  21  70  87  61  55   4  92  27  80  17  22
-  37  15  33  39  44  26  99  10  16  67  23  30  86  89  54  59  14  97
-  98  83  20  50  63  73 101]
-[  1  24  72  13   3  65  12  18  79  42  95  49  94   5  69  47  90  82
-  75  29  36  28  11  84  31  34  64  74   2  66  91 100  62  81  21  38
-  61  96  55   8  92  41  27  45  80  77  17  48  22  71  15  76  39  46
-  26   6  99  60  16  88  23  53  30  19  86  68  89  52  54   7  14  35
-  97  25  98   9  20  56  63  85 101]
+3.945542812785627
+[ 1 10  2  7  9  6  4  8 11]
+[ 1  3  9  5 11]
 ```
-And the thing you need is the total_cost, which is the TSP-D cost.
+And the thing you need is the final_time, which is the TSP-D cost.
+
+Note that the input tsp tour should be 1-indexed, also start from 1 and end with 11.
+```bash
+[ 1 10  2  7  3  9  6  5  4  8 11]
+```
 
 Alpha is a parameter that denotes truck : drone speed ratio, and we should target alpha = 1, 2, 3. 
 
@@ -36,7 +37,8 @@ jl = Julia(compiled_modules=False)
 
 from julia import TSPDrone
 ```
-this part at the front. Comment out the first two lines if your not using conda since this will slow down algorithm runtime.
+this part at the front. Comment out the first two lines if your not using virtual environment since this will slow down algorithm runtime.
+=> I failed to run julia in a plane environment. You should leave these lines active. 
 
 I will open you a server that is ubuntu 22.04, 4 RTX 4090, and python and julia installed. 
 

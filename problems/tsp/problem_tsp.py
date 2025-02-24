@@ -21,6 +21,9 @@ class TSP(object):
         # Gather dataset in order of tour
         d = dataset.gather(1, pi.unsqueeze(-1).expand_as(dataset))
 
+        #WARNING: Julia is 1-indexed, so if you want to run the function, I think you should +1 the tour
+        #WARNING: For the function run_tsp_ep, the tour should be 1 to n + 1, where 1 is the first and n+1 is the last
+
         # Length is distance (L2-norm of difference) from each next location from its prev and of last from first
         return (d[:, 1:] - d[:, :-1]).norm(p=2, dim=2).sum(1) + (d[:, 0] - d[:, -1]).norm(p=2, dim=1), None
 
