@@ -11,7 +11,8 @@ from nets.attention_model import set_decode_type
 from utils.log_utils import log_values
 from utils import move_to
 import wandb
-
+from tsp_ep import run_tsp_ep, run_concorde
+import numpy as np
 
 def get_inner_model(model):
     return model.module if isinstance(model, DataParallel) else model
@@ -161,3 +162,28 @@ def train_batch(
     if step % int(opts.log_step) == 0:
         log_values(cost, grad_norms, epoch, batch_id, step,
                    log_likelihood, reinforce_loss, bl_loss, tb_logger, opts)
+
+    # Validation Benchmark dataset
+    if step % int(opts.log_step) == 0:
+        with torch.no_grad():
+            cost, log_likelihood = model(x)
+            mean_cost = cost.mean()
+        batch_size = x.size(0)
+        num_nodes = x.size(1)
+        opt_costs = []
+        for i in range(batch_size):
+            x_ = x[i][:, 0].cpu().numpy()
+            y_ = x[i][:, 1].cpu().numpy()
+            opt_tour, opt_len = run_concorde(x_, y_)
+            opt_tour = np.append(opt_tour, num_nodes + 1)
+            alpha = 2.0
+            opt_cost, _, _ = run_tsp_ep(opt_tour, x_, y_, alpha)
+            opt_costs.append(opt_cost)
+        opt_costs = torch.FloatTensor(opt_costs).to(x.device)
+        mean_opt_cost = opt_costs.mean()
+        mean_cost = mean_cost.item()
+        mean_opt_cost = mean_opt_cost.item()
+        print("Step: {}, Mean Cost: {}, Mean Opt Cost From Concorde: {}".format(step, mean_cost, mean_opt_cost))
+
+        import gc
+        gc.collect()
