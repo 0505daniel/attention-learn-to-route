@@ -15,7 +15,8 @@ from reinforce_baselines import NoBaseline, ExponentialBaseline, CriticBaseline,
 from nets.attention_model import AttentionModel
 from nets.pointer_network import PointerNetwork, CriticNetworkLSTM
 from utils import torch_load_cpu, load_problem
-from tsp_ep import run_tsp_ep, run_concorde
+from interface import run_concorde
+from tsp_ep import run_tsp_ep
 import numpy as np
 import wandb
 
@@ -169,6 +170,7 @@ def run(opts):
         y_ = val_dataset[i][:, 1].cpu().numpy()
         opt_tour, opt_len = run_concorde(x_, y_)
         opt_tour = np.append(opt_tour, num_nodes + 1)
+        opt_tour -= 1
         alpha = 2.0
         opt_cost, _, _ = run_tsp_ep(opt_tour, x_, y_, alpha)
         opt_costs.append(opt_cost)

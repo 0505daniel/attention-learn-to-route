@@ -4,12 +4,24 @@ import os
 import pickle
 from problems.tsp.state_tsp import StateTSP
 from utils.beam_search import beam_search
-from tsp_ep import run_tsp_ep
+from tsp_ep import run_tsp_ep_batch
 import numpy as np
 
 def shift_left_to_right(arr):
-    zero_idx = np.where(arr == 1)[0][0]
-    return np.concatenate((arr[zero_idx:], arr[:zero_idx]))
+    zero_idx = np.where(arr == 0)[0][0]
+    arr = np.concatenate((arr[zero_idx:], arr[:zero_idx]))
+    num_nodes = len(arr)
+    arr = np.append(arr, num_nodes)
+    return arr
+
+def preprocessing(tour):
+    batch_size = tour.shape[0]
+    tour_list = []
+    for i in range(batch_size):
+        tour_list.append(shift_left_to_right(tour[i]))
+    tour_np = np.array(tour_list)
+    return tour_np
+
 
 class TSP(object):
 
@@ -30,20 +42,13 @@ class TSP(object):
         #WARNING: For the function run_tsp_ep, the tour should be 1 to n + 1, where 1 is the first and n+1 is the last
         
         #NOTE: Get TSP-D cost
-        batch_size = pi.size(0)
-        num_nodes = pi.size(1)
-        costs = []
-        for i in range(batch_size):
-            x = dataset[i][:, 0].cpu().numpy()
-            y = dataset[i][:, 1].cpu().numpy()
-            tour = pi[i].cpu().numpy()+1
-            tour = shift_left_to_right(tour)
-            tour = np.append(tour, num_nodes+1)
-            alpha = 2.0
-            cost, truck_route, drone_route = run_tsp_ep(tour, x, y, alpha)
-            costs.append(cost)
-        import gc 
-        gc.collect()
+        x = dataset[:, :, 0].cpu().numpy()
+        y = dataset[:, :, 1].cpu().numpy()
+        tour = pi[:].cpu().numpy()
+        tour = preprocessing(tour)
+        alpha = 2.0
+        costs, truck_route, drone_route = run_tsp_ep_batch(tour, x, y, alpha)
+        import gc; gc.collect()
         return torch.FloatTensor(costs).to(pi.device), None
         
         # Length is distance (L2-norm of difference) from each next location from its prev and of last from first

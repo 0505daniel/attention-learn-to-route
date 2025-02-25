@@ -4,6 +4,7 @@ jl = Julia(compiled_modules=False)
 
 from julia import TSPDrone
 from julia import Concorde
+import numpy as np
 
 def run_tsp_ep(tour, x, y, alpha):
     """
@@ -15,6 +16,8 @@ def run_tsp_ep(tour, x, y, alpha):
     return TSPDrone.exact_partitioning(tour, Ct, Cd)
 
 def run_concorde(x, y):
+    # to np.float64
+    x, y = np.array(x, dtype=np.float64), np.array(y, dtype=np.float64)
     """
     Python interface for the Concorde algorithm.
     """    

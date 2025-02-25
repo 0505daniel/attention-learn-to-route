@@ -1,5 +1,4 @@
 import numpy as np
-from joblib import Parallel, delayed
 
 def travel_cost(path, C):
     """
@@ -21,8 +20,7 @@ def travel_cost(path, C):
 def objective_value(truck_route, drone_route, Ct, Cd):
     """
     Compute the objective value from truck and drone routes.
-    The objective value is the sum over segments of the maximum 
-    of the truck and drone travel costs.
+    The objective value is the sum over segments of the maximum of the truck and drone travel costs.
     """
     # Determine the combined nodes in the order they appear in truck_route.
     combined_nodes = [node for node in truck_route if node in drone_route]
@@ -46,7 +44,7 @@ def objective_value(truck_route, drone_route, Ct, Cd):
 def cost_matrices_with_dummy_from_matrices(truck_cost_mtx, drone_cost_mtx):
     """
     Construct cost matrices with a dummy node from given truck and drone cost matrices.
-
+    
     This function mimics the Julia version:
     
         Ct = [ truck_cost_mtx          truck_cost_mtx[:, 1];
@@ -250,94 +248,34 @@ def exact_partitioning(initial_tour, Ct, Cd, flying_range=1e6, complexity=3):
 
     return final_time, truck_route, drone_route
 
-
 def run_tsp_ep(tour, x, y, alpha):
     """
     Interface for Python version of TSP-ep algorithm.
-    
-    Parameters:
-      tour  : 1D array-like of size (dim + 1)
-      x, y  : 1D array-like of node coordinates, size (dim,)
-      alpha : scalar, drone speed factor (if alpha=2.0 -> drone speed = 1/alpha=0.5)
-    
-    Returns:
-      final_time, truck_route, drone_route
-    """
+    """    
     # Generate cost matrix with dummy
     Ct, Cd = cost_matrices_with_dummy(x, y, 1.0, 1.0 / alpha)
 
     return exact_partitioning(tour, Ct, Cd)
 
-
-def run_tsp_ep_batch(tours, xs, ys, alphas, n_jobs=-1):
-    """
-    배치(batch) 형태의 (tour, x, y, alpha) 데이터를
-    병렬로 run_tsp_ep 함수를 호출하여 결과를 반환하는 함수.
-
-    Parameters:
-      tours   : shape (batch_size, dim+1)
-      xs      : shape (batch_size, dim)
-      ys      : shape (batch_size, dim)
-      alphas  : shape (batch_size,) (혹은 broadcast 가능)
-      n_jobs  : joblib Parallel에 넘길 프로세스 혹은 스레드 개수 (기본 -1: 모든 코어 사용)
-
-    Returns:
-      final_times   : 길이 batch_size 의 1D np.array
-      truck_routes  : 길이 batch_size 의 list of list
-      drone_routes  : 길이 batch_size 의 list of list
-    """
-    alphas = np.ones(xs.shape[0])*alphas
-    # 병렬화를 위해 joblib 사용
-    results = Parallel(n_jobs=n_jobs)(
-        delayed(run_tsp_ep)(tour, x, y, alpha) 
-        for tour, x, y, alpha in zip(tours, xs, ys, alphas)
-    )
-    
-    # results는 [(final_time, truck_route, drone_route), ( ... ), ... ] 형태
-    final_times, truck_routes, drone_routes = zip(*results)
-    
-    # final_times는 float이므로 np.array로 묶고,
-    # truck_routes와 drone_routes는 길이가 다를 수 있으므로 list of list 형태 그대로 반환
-    return np.array(final_times), list(truck_routes), list(drone_routes)
-
-
 if __name__ == "__main__":
 
-    # === 1) 단일 실행 예시 ===
-    x = np.array([
-        0.41647154, 0.9528754, 0.2846341, 0.49612117, 0.948007,
-        0.19722569, 0.5520318, 0.16971296, 0.4616382,  0.10158819,
-        0.6514677,  0.67163014, 0.30766296, 0.46783316, 0.7966255,
-        0.65731454, 0.10641873, 0.50887656, 0.14265233, 0.81040597
-    ])
-    y = np.array([
-        0.4943713,  0.11617166, 0.36576557, 0.19983506, 0.03876638,
-        0.55138904, 0.37202078, 0.2803604,  0.03344417, 0.40782398,
-        0.88867146, 0.74739623, 0.83490664, 0.21177989, 0.14606476,
-        0.99657464, 0.1006282,  0.76188064, 0.8084778,  0.2958197
-    ])
-    tour = np.array([
-        1, 13, 4, 14, 9, 19, 3, 6, 8, 10, 17, 2, 5, 16, 11, 12, 20, 15, 18, 7, 21
-    ])
+    x = np.array([0.41647154, 0.9528754, 0.2846341, 0.49612117, 0.948007, 0.19722569,
+                0.5520318, 0.16971296, 0.4616382, 0.10158819, 0.6514677, 0.67163014,
+                0.30766296, 0.46783316, 0.7966255, 0.65731454, 0.10641873, 0.50887656,
+                0.14265233, 0.81040597])
+    y = np.array([0.4943713, 0.11617166, 0.36576557, 0.19983506, 0.03876638, 0.55138904,
+                0.37202078, 0.2803604, 0.03344417, 0.40782398, 0.88867146, 0.74739623,
+                0.83490664, 0.21177989, 0.14606476, 0.99657464, 0.1006282, 0.76188064,
+                0.8084778, 0.2958197])
+    tour = np.array([1, 13, 4, 14, 9, 19, 3, 6, 8, 10, 17, 2, 5, 16, 11, 12, 20, 15, 18, 7, 21])
     tour -= 1  # 0-index
 
-    alpha = 2.0
+    # # Ct, Cd = cost_matrices_with_dummy(x, y, 1.0, 2.0)
+    # Ct, Cd = cost_matrices_with_dummy(x, y, 1.0, 0.5)
 
-    final_time, truck_route, drone_route = run_tsp_ep(tour, x, y, alpha)
-    print("=== 단일 실행 결과 ===")
-    print("final_time:", final_time)
-    print("truck_route:", truck_route)
-    print("drone_route:", drone_route)
-
-    # === 2) 배치(batch) 실행 예시 (batch_size=1) ===
-    # 모양을 맞추기 위해 (1, 20), (1, 20), (1, 21) 형태로 reshape
-    xs = x[np.newaxis, :]
-    ys = y[np.newaxis, :]
-    tours = tour[np.newaxis, :]
-    alphas = np.array([alpha])  # shape: (1,)
-
-    final_times_batch, truck_routes_batch, drone_routes_batch = run_tsp_ep_batch(tours, xs, ys, alphas, n_jobs=-1)
-    print("\n=== 배치(batch) 실행 결과 (batch_size=1) ===")
-    print("final_time:", final_times_batch[0])
-    print("truck_route:", truck_routes_batch[0])
-    print("drone_route:", drone_routes_batch[0])
+    # final_time, truck_route, drone_route = exact_partitioning(tour, Ct, Cd)
+    final_time, truck_route, drone_route = run_tsp_ep(tour, x, y, 2.0)
+    
+    print("Final time:", final_time)
+    print("Truck route:", truck_route)
+    print("Drone route:", drone_route)
