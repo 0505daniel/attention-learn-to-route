@@ -10,9 +10,6 @@ from torch.nn import DataParallel
 from nets.attention_model import set_decode_type
 from utils.log_utils import log_values
 from utils import move_to
-import wandb
-from tsp_ep import run_tsp_ep, run_concorde
-import numpy as np
 
 def get_inner_model(model):
     return model.module if isinstance(model, DataParallel) else model
@@ -66,7 +63,7 @@ def clip_grad_norms(param_groups, max_norm=math.inf):
     return grad_norms, grad_norms_clipped
 
 
-def train_epoch(model, optimizer, baseline, lr_scheduler, epoch, val_dataset, problem, tb_logger, opts):
+def train_epoch(model, optimizer, baseline, lr_scheduler, epoch, val_dataset, problem, tb_logger, opts, mean_opt_cost):
     print("Start train epoch {}, lr={} for run {}".format(epoch, optimizer.param_groups[0]['lr'], opts.run_name))
     step = epoch * (opts.epoch_size // opts.batch_size)
     start_time = time.time()
@@ -81,7 +78,7 @@ def train_epoch(model, optimizer, baseline, lr_scheduler, epoch, val_dataset, pr
 
     # Put model in train mode!
     model.train()
-    set_decode_type(model, "sampling")
+    set_decode_type(model, "sampling")   
 
     for batch_id, batch in enumerate(tqdm(training_dataloader, disable=opts.no_progress_bar)):
 
@@ -94,7 +91,9 @@ def train_epoch(model, optimizer, baseline, lr_scheduler, epoch, val_dataset, pr
             step,
             batch,
             tb_logger,
-            opts
+            opts,
+            val_dataset,
+            mean_opt_cost
         )
 
         step += 1
@@ -135,7 +134,9 @@ def train_batch(
         step,
         batch,
         tb_logger,
-        opts
+        opts,
+        val_dataset,
+        mean_opt_cost
 ):
     x, bl_val = baseline.unwrap_batch(batch)
     x = move_to(x, opts.device)
@@ -165,24 +166,14 @@ def train_batch(
 
     # Validation Benchmark dataset
     if step % int(opts.log_step) == 0:
+        x_val = val_dataset[:opts.batch_size]
+        x_val = torch.stack(x_val)
+        x_val = move_to(x_val, opts.device)
         with torch.no_grad():
-            cost, log_likelihood = model(x)
-            mean_cost = cost.mean()
-        batch_size = x.size(0)
-        num_nodes = x.size(1)
-        opt_costs = []
-        for i in range(batch_size):
-            x_ = x[i][:, 0].cpu().numpy()
-            y_ = x[i][:, 1].cpu().numpy()
-            opt_tour, opt_len = run_concorde(x_, y_)
-            opt_tour = np.append(opt_tour, num_nodes + 1)
-            alpha = 2.0
-            opt_cost, _, _ = run_tsp_ep(opt_tour, x_, y_, alpha)
-            opt_costs.append(opt_cost)
-        opt_costs = torch.FloatTensor(opt_costs).to(x.device)
-        mean_opt_cost = opt_costs.mean()
-        mean_cost = mean_cost.item()
-        mean_opt_cost = mean_opt_cost.item()
+            model.eval()
+            cost_val, _ = model(x_val)
+            mean_cost = cost_val.mean()
+        model.train()
         print("Step: {}, Mean Cost: {}, Mean Opt Cost From Concorde: {}".format(step, mean_cost, mean_opt_cost))
 
         import gc
