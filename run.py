@@ -15,6 +15,8 @@ from reinforce_baselines import NoBaseline, ExponentialBaseline, CriticBaseline,
 from nets.attention_model import AttentionModel
 from nets.pointer_network import PointerNetwork, CriticNetworkLSTM
 from utils import torch_load_cpu, load_problem
+from tsp_ep import run_tsp_ep, run_concorde
+import numpy as np
 import wandb
 
 
@@ -159,6 +161,21 @@ def run(opts):
         print("Resuming after {}".format(epoch_resume))
         opts.epoch_start = epoch_resume + 1
 
+    #NOTE Get Concorde Baseline Score on Validation Set
+    num_nodes = val_dataset[0].size(0)
+    opt_costs = []
+    for i in range(opts.batch_size):
+        x_ = val_dataset[i][:, 0].cpu().numpy()
+        y_ = val_dataset[i][:, 1].cpu().numpy()
+        opt_tour, opt_len = run_concorde(x_, y_)
+        opt_tour = np.append(opt_tour, num_nodes + 1)
+        alpha = 2.0
+        opt_cost, _, _ = run_tsp_ep(opt_tour, x_, y_, alpha)
+        opt_costs.append(opt_cost)
+    opt_costs = torch.FloatTensor(opt_costs)
+    mean_opt_cost = opt_costs.mean()
+    import gc; gc.collect()
+
     if opts.eval_only:
         validate(model, val_dataset, opts) #TODO Need to look this part after Training
     else:
@@ -172,7 +189,8 @@ def run(opts):
                 val_dataset,
                 problem,
                 tb_logger,
-                opts
+                opts,
+                mean_opt_cost
             ) #TODO Need to look this part 2
 
 
